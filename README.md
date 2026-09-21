@@ -239,6 +239,30 @@ This project welcomes contributions! Areas for improvement:
 - **Mobile**: Enhance mobile experience
 - **Accessibility**: Improve screen reader support
 
+### 🤖 AI Settings (fork addition)
+
+One tab for the API key, provider, endpoint and model used by every AI feature
+(AI rerank in Variations, and Anti-Classifier). All providers share the
+OpenAI-compatible request format, so **OpenRouter reaches Claude, Gemini and
+Llama with a single key**, and any other compatible endpoint - Groq, Together,
+a local Ollama or LM Studio - works by pasting its URL. **Test Connection**
+distinguishes a bad key from a bad endpoint instead of leaving you guessing.
+
+The key is the one the app already stored (`openai_api_key`), so the
+Anti-Classifier tab keeps working unchanged and you only enter it once.
+
+### 💭 Sentence Variations (fork addition)
+
+Generates semantically-adjacent rephrasings of a sentence - synonyms, negated
+antonyms, hypernyms, hyponyms, homophones - to test whether a guardrail blocks a
+*concept* or merely a *string*. Where Mutation Lab mutates characters, this
+mutates meaning, and results can be piped straight into the transforms.
+
+Free, no API key, no backend. See **[VARIATIONS.md](VARIATIONS.md)** for usage,
+the relation types, and an honest list of limitations.
+
+Tests: open `test_variations.html` (25 tests, runs entirely offline).
+
 ### 🧩 How to add a new transform
 
 1) Define the transform in `js/transforms.js` inside the `transforms` object:
@@ -275,7 +299,7 @@ const customChecks = [{ name: 'Your New Transform', transform: 'your_key' }];
 
 4) If you want it considered by the Randomizer, add its key to `getRandomizableTransforms()` in `js/transforms.js`.
 
-5) Test it in `test_transforms.html`. Add a button and a simple test harness calling `testTransform('your_key')`.
+5) Test it. (Note: `test_transforms.html` referenced here is no longer in the repo; `test_variations.html` shows the pattern.)
 
 Tips:
 - Keep `preview()` short to avoid UI overflow.

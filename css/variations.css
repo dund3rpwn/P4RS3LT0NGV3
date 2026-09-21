@@ -1,0 +1,214 @@
+/* Sentence Variations tab.
+ *
+ * Scoped under #variations-panel so upstream's style.css stays byte-identical
+ * and the fork rebases cleanly.
+ *
+ * Everything here uses the app's own design tokens (--accent-color,
+ * --secondary-bg, --input-border, --success-color, --format-color, ...) rather
+ * than literal colors, so the panel follows the app's theme automatically
+ * instead of drifting away from it.
+ *
+ * Conventions borrowed from style.css:
+ *   - section headings and chrome text use 'Courier New'
+ *   - body copy and form labels use the inherited Inter stack
+ *   - panels/cards sit on --secondary-bg with a 1px --input-border, radius 6px
+ *   - buttons use the .action-button gradient + --input-border treatment
+ */
+
+/* --- relation checkbox groups ----------------------------------------- */
+
+#variations-panel .var-relation-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin: 10px 0 4px;
+}
+
+#variations-panel .var-group {
+  flex: 1 1 220px;
+  min-width: 200px;
+}
+
+#variations-panel .var-group > h4 {
+  margin: 0 0 6px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: .78rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--accent-color);
+  opacity: .85;
+}
+
+/* relations that do NOT preserve meaning are called out in the app's own
+   amber, matching how it flags non-default state elsewhere */
+#variations-panel .var-group.var-group-phonetic > h4,
+#variations-panel .var-group.var-group-loose > h4 {
+  color: var(--format-color);
+}
+
+#variations-panel .var-group .switch {
+  display: block;
+  margin-bottom: 4px;
+}
+
+#variations-panel .var-selectors {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: .82rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+#variations-panel .var-selectors a {
+  cursor: pointer;
+  color: var(--accent-color);
+  text-decoration: none;
+  border-bottom: 1px dotted currentColor;
+}
+
+#variations-panel .var-selectors a:hover { color: var(--accent-hover); }
+
+/* --- yield strip / status --------------------------------------------- */
+
+#variations-panel .var-yield {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: center;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: .78rem;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+#variations-panel .var-yield strong { color: var(--text-color); }
+#variations-panel .var-yield .var-zero { opacity: .45; }
+
+#variations-panel .var-shortfall {
+  color: var(--format-color);
+  font-size: .82rem;
+  margin-bottom: 8px;
+}
+
+#variations-panel .var-progress {
+  height: 6px;
+  border-radius: 6px;
+  background: var(--button-bg);
+  border: 1px solid var(--input-border);
+  overflow: hidden;
+  margin: 10px 0 6px;
+}
+
+#variations-panel .var-progress > div {
+  height: 100%;
+  background: var(--accent-color);
+  transition: width .18s ease;
+}
+
+#variations-panel .var-banner {
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  font-size: .82rem;
+  color: var(--text-color);
+  background: rgba(var(--accent-color-rgb), .10);
+  border: 1px solid rgba(var(--accent-color-rgb), .35);
+}
+
+#variations-panel .var-footnote {
+  margin-top: 12px;
+  font-size: .74rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+#variations-panel .var-footnote a {
+  color: var(--accent-color);
+  cursor: pointer;
+}
+
+/* --- result rows -------------------------------------------------------
+   These mirror Mutation Lab's .fuzzer-list rows exactly: index span, readonly
+   textarea, copy button. Upstream's own two-line fix is reproduced here,
+   because .copy-button is position:absolute and would otherwise escape the
+   row - the same bug upstream already solved for .fuzzer-list. */
+
+.variations-list .token-chip { position: relative; }
+.variations-list .token-chip .copy-button { position: static; }
+
+#variations-panel .variations-list .token-chip {
+  display: flex;          /* matches the inline style on Mutation Lab's rows */
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  transition: border-color .15s, background .15s;
+}
+
+#variations-panel .variations-list .token-chip:hover {
+  border-color: rgba(var(--accent-color-rgb), .45);
+}
+
+#variations-panel .variations-list .token-chip.var-selected {
+  border-color: var(--accent-color);
+  background: rgba(var(--accent-color-rgb), .10);
+}
+
+/* a readonly row is for selecting, not editing */
+#variations-panel .variations-list textarea {
+  cursor: pointer;
+  resize: vertical;
+}
+
+/* Upstream styles no :disabled state, so a disabled button is visually
+   indistinguishable from an enabled one - clicking it just does nothing. Give
+   the in-flight state a real affordance. */
+#variations-panel button[disabled] {
+  opacity: .5;
+  cursor: not-allowed;
+  filter: grayscale(35%);
+}
+
+/* --- AI Settings tab ---------------------------------------------------
+   Almost everything here reuses upstream's .api-key-section / .options-grid /
+   .model-config-section classes, so only the few genuinely new bits are
+   styled, using the app's own tokens. */
+
+#ai-settings-panel .ai-model-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: .76rem;
+  color: var(--text-muted);
+}
+
+#ai-settings-panel .ai-model-suggestions .action-button {
+  font-family: 'Fira Code', 'Courier New', monospace;
+  font-size: .72rem;
+  padding: 3px 8px;
+}
+
+#ai-settings-panel .ai-test-result {
+  margin-top: 10px;
+}
+
+/* the rerank row's key hint, on the Variations tab */
+#variations-panel .var-rerank-hint {
+  font-size: .78rem;
+  color: var(--text-muted);
+  margin-left: 10px;
+}
+
+#variations-panel .var-rerank-hint a {
+  color: var(--accent-color);
+  cursor: pointer;
+  border-bottom: 1px dotted currentColor;
+}
+
+#variations-panel .var-rerank-hint a:hover { color: var(--accent-hover); }
