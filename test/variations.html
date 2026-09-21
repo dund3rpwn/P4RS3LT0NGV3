@@ -6,7 +6,7 @@
 <!--
   Zero-build test harness. Open this file directly in a browser.
 
-  NOTE: fixtures live in test_fixtures.js as a plain <script> assignment, NOT
+  NOTE: fixtures live in fixtures.js as a plain <script> assignment, NOT
   as JSON loaded via fetch(). Under file:// a fetch() of a local file is
   blocked by CORS, so a fetched fixture file would fail for anyone who just
   double-clicks this page. Keep it a script.
@@ -39,8 +39,8 @@
 <div id="summary">running&hellip;</div>
 <div id="out"></div>
 
-<script src="test_fixtures.js"></script>
-<script src="js/variations.js"></script>
+<script src="fixtures.js"></script>
+<script src="../js/variations.js"></script>
 <script>
 (function () {
   'use strict';

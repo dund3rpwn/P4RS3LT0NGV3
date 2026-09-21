@@ -145,12 +145,17 @@ Two things worth knowing before enabling it:
 ## Architecture
 
 ```
-js/variations.js      engine - pure, no framework, no DOM. window.sentenceVariations
-js/variationsVue.js   Vue 2 mixin, every key namespaced var*
-css/variations.css    scoped under #variations-panel
-test_variations.html  offline test suite (25 tests, zero network)
-test_fixtures.js      recorded Datamuse responses
+js/variations.js       engine - pure, no framework, no DOM. window.sentenceVariations
+js/variationsVue.js    Vue 2 mixin for the tab, every key namespaced var*
+js/aiSettingsVue.js    Vue 2 mixin for AI Settings, every key namespaced ai*
+css/variations.css     scoped under #variations-panel / #ai-settings-panel
+test/variations.html   engine suite - 41 tests, zero network
+test/mixins.html       mixin suite - 20 tests, no Vue, zero network
+test/fixtures.js       recorded Datamuse responses, so the suite runs offline
 ```
+
+The `test/` directory is not shipped by the Dockerfile, which copies only
+`index.html`, `css/`, `js/`, `LICENSE` and `README.md`.
 
 Upstream files touched: `index.html` (additive markup) and `js/app.js` — the mixin registration plus routing the Anti-Classifier's request through the shared AI Settings config, so both AI features use one provider instead of one of them being hardwired to OpenAI.
 
@@ -158,12 +163,12 @@ Upstream files touched: `index.html` (additive markup) and `js/app.js` — the m
 
 Two suites, both zero-build and zero-network — open either directly in a browser.
 
-- **`test_variations.html`** — 41 tests over the generation engine.
-- **`test_mixins.html`** — 20 tests over the AI Settings and Variations mixins, exercising their computed properties and methods against a mock context rather than mounting Vue, so the suite stays offline. The load-bearing one is **test 1**: the API key must never be attached to a loopback endpoint.
+- **`test/variations.html`** — 41 tests over the generation engine.
+- **`test/mixins.html`** — 20 tests over the AI Settings and Variations mixins, exercising their computed properties and methods against a mock context rather than mounting Vue, so the suite stays offline. The load-bearing one is **test 1**: the API key must never be attached to a loopback endpoint.
 
 ### Engine suite
 
-Open `test_variations.html` directly in a browser. 25 tests, **no network calls** — a stubbed fetch answers from recorded fixtures, so the suite runs offline and spends no rate-limit budget.
+Open `test/variations.html` directly in a browser. 25 tests, **no network calls** — a stubbed fetch answers from recorded fixtures, so the suite runs offline and spends no rate-limit budget.
 
 Fixtures are a plain `<script>` assignment rather than fetched JSON, because under `file://` a `fetch()` of a local file is blocked by CORS and would break for anyone who just double-clicks the page.
 

@@ -273,7 +273,7 @@ mutates meaning, and results can be piped straight into the transforms.
 Free, no API key, no backend. See **[VARIATIONS.md](VARIATIONS.md)** for usage,
 the relation types, and an honest list of limitations.
 
-Tests: open `test_variations.html` (25 tests, runs entirely offline).
+Tests: open `test/variations.html` (25 tests, runs entirely offline).
 
 ### 🧩 How to add a new transform
 
@@ -311,7 +311,7 @@ const customChecks = [{ name: 'Your New Transform', transform: 'your_key' }];
 
 4) If you want it considered by the Randomizer, add its key to `getRandomizableTransforms()` in `js/transforms.js`.
 
-5) Test it. (Note: `test_transforms.html` referenced here is no longer in the repo; `test_variations.html` shows the pattern.)
+5) Test it. (Note: `test_transforms.html` referenced here is no longer in the repo; `test/variations.html` shows the pattern.)
 
 Tips:
 - Keep `preview()` short to avoid UI overflow.

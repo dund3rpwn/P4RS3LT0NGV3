@@ -23,7 +23,7 @@
   // are the INVERSE of what they read like. Verified empirically 2026-09:
   //     rel_spc=boat -> vessel, watercraft    (MORE GENERAL = hypernyms)
   //     rel_gen=boat -> tender, barge, tug    (MORE SPECIFIC = hyponyms)
-  // test_variations.html pins this with a regression test. If that test fails,
+  // test/variations.html pins this with a regression test. If that test fails,
   // someone "corrected" these names - revert them.
   var RELATIONS = {
     domain:         { param: null,      label: 'AI/security terms', badge: 'dom',  weight: 1.30, group: 'semantic', defaultOn: true, local: true },
