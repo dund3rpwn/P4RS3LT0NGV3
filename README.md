@@ -1,5 +1,17 @@
 # 🐍 P4RS3LT0NGV3 - Universal Text Translator
 
+> **This is a modified fork.**
+> Forked from [Arcanum-Sec/P4RS3LT0NGV3](https://github.com/Arcanum-Sec/P4RS3LT0NGV3) and modified in September 2026 by [@dund3rpwn](https://github.com/dund3rpwn).
+>
+> **Changes in this fork:**
+> - Added a **Sentence Variations** tab - semantic payload mutation via synonyms, negated antonyms, hypernyms, hyponyms and homophones ([VARIATIONS.md](VARIATIONS.md))
+> - Added an **AI Settings** tab - one place to configure provider, endpoint, key and model, supporting any OpenAI-compatible endpoint including a local Ollama
+> - Routed the Anti-Classifier through that shared configuration instead of a hardcoded OpenAI endpoint
+> - Fixed upstream bugs: invisible-text decoding, an unregistered `setupPasteHandlers`, unescaped model output rendered via `v-html`, and unpinned CDN dependencies
+>
+> Licensed under AGPL-3.0, as upstream. Source for this modified version: <https://github.com/dund3rpwn/P4RS3LT0NGV3>
+
+
 A powerful web-based text transformation and steganography tool that can encode/decode text in over 50 different languages, scripts, and formats. Think of it as a universal translator for ALL alphabets and writing systems!
 
 ## ✨ Features
@@ -239,6 +251,30 @@ This project welcomes contributions! Areas for improvement:
 - **Mobile**: Enhance mobile experience
 - **Accessibility**: Improve screen reader support
 
+### 🤖 AI Settings (fork addition)
+
+One tab for the API key, provider, endpoint and model used by every AI feature
+(AI rerank in Variations, and Anti-Classifier). All providers share the
+OpenAI-compatible request format, so **OpenRouter reaches Claude, Gemini and
+Llama with a single key**, and any other compatible endpoint - Groq, Together,
+a local Ollama or LM Studio - works by pasting its URL. **Test Connection**
+distinguishes a bad key from a bad endpoint instead of leaving you guessing.
+
+The key is the one the app already stored (`openai_api_key`), so the
+Anti-Classifier tab keeps working unchanged and you only enter it once.
+
+### 💭 Sentence Variations (fork addition)
+
+Generates semantically-adjacent rephrasings of a sentence - synonyms, negated
+antonyms, hypernyms, hyponyms, homophones - to test whether a guardrail blocks a
+*concept* or merely a *string*. Where Mutation Lab mutates characters, this
+mutates meaning, and results can be piped straight into the transforms.
+
+Free, no API key, no backend. See **[VARIATIONS.md](VARIATIONS.md)** for usage,
+the relation types, and an honest list of limitations.
+
+Tests: open `test/variations.html` (25 tests, runs entirely offline).
+
 ### 🧩 How to add a new transform
 
 1) Define the transform in `js/transforms.js` inside the `transforms` object:
@@ -275,7 +311,7 @@ const customChecks = [{ name: 'Your New Transform', transform: 'your_key' }];
 
 4) If you want it considered by the Randomizer, add its key to `getRandomizableTransforms()` in `js/transforms.js`.
 
-5) Test it in `test_transforms.html`. Add a button and a simple test harness calling `testTransform('your_key')`.
+5) Test it. (Note: `test_transforms.html` referenced here is no longer in the repo; `test/variations.html` shows the pattern.)
 
 Tips:
 - Keep `preview()` short to avoid UI overflow.

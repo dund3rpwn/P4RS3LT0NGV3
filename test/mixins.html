@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AI Settings &amp; Variations mixins - test harness</title>
+<!--
+  Zero-build, zero-network test harness for the two Vue mixins.
+
+  These exercise the mixins' computed properties and methods directly against a
+  mock `this`, rather than mounting Vue. That keeps the suite offline (no CDN
+  fetch) and makes the security-relevant logic - chiefly aiAuthHeaders, which
+  decides whether your API key is attached to a request - testable in isolation.
+
+  Vue's own merge behaviour is not covered here; that is verified in a browser
+  against the real app.
+-->
+<style>
+  body { font-family: ui-monospace, Consolas, monospace; background:#14161a; color:#dfe3e8;
+         margin:0; padding:24px; line-height:1.5; }
+  h1 { font-size:1.2rem; margin:0 0 4px; }
+  .sub { opacity:.6; font-size:.8rem; margin-bottom:18px; }
+  #summary { padding:10px 14px; border-radius:6px; margin-bottom:14px; font-weight:600; }
+  .ok   { background:rgba(74,212,160,.15); border:1px solid rgba(74,212,160,.5); }
+  .bad  { background:rgba(232,90,90,.15);  border:1px solid rgba(232,90,90,.55); }
+  .t    { padding:5px 10px; border-left:3px solid #333; margin-bottom:3px; }
+  .t.p  { border-left-color:#4ad4a0; }
+  .t.f  { border-left-color:#e85a5a; background:rgba(232,90,90,.08); }
+  .name { font-weight:600; }
+  .msg  { opacity:.75; font-size:.82rem; white-space:pre-wrap; }
+  .sec  { margin:16px 0 6px; font-size:.8rem; opacity:.55; text-transform:uppercase; letter-spacing:.05em; }
+</style>
+</head>
+<body>
+<h1>AI Settings &amp; Variations mixins</h1>
+<div class="sub">Offline. No Vue, no network.</div>
+<div id="summary">running&hellip;</div>
+<div id="out"></div>
+
+<script src="../js/variations.js"></script>
+<script src="../js/variationsVue.js"></script>
+<script src="../js/aiSettingsVue.js"></script>
+<script>
+(function () {
+  'use strict';
+  var AI  = window.aiSettingsVueMixin;
+  var VAR = window.variationsVueMixin;
+
+  /* ---------------- harness ---------------- */
+  var queue = [];
+  function test(name, fn) { queue.push({ name: name, fn: fn }); }
+  function section(label) { queue.push({ section: label }); }
+  function assert(c, m) { if (!c) throw new Error(m || 'assertion failed'); }
+  function eq(a, b, m) {
+    if (a !== b) throw new Error((m || 'not equal') +
+      '\n  expected: ' + JSON.stringify(b) + '\n  actual:   ' + JSON.stringify(a));
+  }
+  function deepEq(a, b, m) { eq(JSON.stringify(a), JSON.stringify(b), m); }
+
+  // Build a mock `this` carrying both mixins' data plus any overrides, with
+  // computed properties resolved on access the way Vue would.
+  function ctx(overrides) {
+    var self = {};
+    [VAR, AI].forEach(function (mx) {
+      var d = mx.data.call(self);
+      Object.keys(d).forEach(function (k) { self[k] = d[k]; });
+    });
+    // app.js properties the mixins read
+    self.openaiApiKey = '';
+    self.activeTab = 'transforms';
+    self.transformInput = '';
+    self.switchToTab = function (t) { self.activeTab = t; };
+    self.copyToClipboard = function (t) { self._copied = t; };
+    self.$set = function (o, k, v) { o[k] = v; };
+
+    Object.keys(overrides || {}).forEach(function (k) { self[k] = overrides[k]; });
+
+    [VAR, AI].forEach(function (mx) {
+      Object.keys(mx.computed || {}).forEach(function (k) {
+        Object.defineProperty(self, k, { get: mx.computed[k].bind(self), configurable: true });
+      });
+      Object.keys(mx.methods || {}).forEach(function (k) {
+        self[k] = mx.methods[k].bind(self);
+      });
+    });
+    return self;
+  }
+
+  /* ================= AI SETTINGS ================= */
+  section('AI Settings - credential handling');
+
+  test('1. the API key is NEVER attached to a localhost endpoint', function () {
+    // A local server has no use for a hosted provider credential, and sending
+    // it exposes the key to whatever is listening on that port.
+    ['http://localhost:11434/v1/chat/completions',
+     'http://127.0.0.1:1234/v1/chat/completions',
+     'http://[::1]:8080/v1/chat/completions',
+     'https://localhost:9999/v1/chat/completions'].forEach(function (url) {
+      var c = ctx({ aiEndpoint: url, openaiApiKey: 'sk-secret' });
+      deepEq(c.aiAuthHeaders, {}, 'key leaked to ' + url);
+      eq(c.aiIsLocal, true, url + ' should be detected as local');
+    });
+  });
+
+  test('2. the API key IS attached to a remote endpoint', function () {
+    var c = ctx({ aiEndpoint: 'https://api.openai.com/v1/chat/completions', openaiApiKey: 'sk-secret' });
+    eq(c.aiIsLocal, false);
+    eq(c.aiAuthHeaders.Authorization, 'Bearer sk-secret');
+  });
+
+  test('3. no key means no Authorization header at all', function () {
+    var c = ctx({ aiEndpoint: 'https://api.openai.com/v1/chat/completions', openaiApiKey: '' });
+    deepEq(c.aiAuthHeaders, {}, 'must not send "Bearer undefined"');
+  });
+
+  test('4. a hostname merely containing "localhost" is NOT treated as local', function () {
+    // e.g. an attacker-registered domain like localhost.evil.com
+    var c = ctx({ aiEndpoint: 'https://localhost.evil.com/v1/chat/completions', openaiApiKey: 'sk-secret' });
+    eq(c.aiIsLocal, false, 'localhost.evil.com must not match the local check');
+    eq(c.aiAuthHeaders.Authorization, 'Bearer sk-secret');
+  });
+
+  section('AI Settings - configuration state');
+
+  test('5. configured requires an endpoint, and a key unless the preset waives it', function () {
+    eq(ctx({ aiEndpoint: '', openaiApiKey: 'k' }).aiIsConfigured, false, 'no endpoint');
+    eq(ctx({ aiProvider: 'openai', aiEndpoint: 'https://x/v1/chat/completions', openaiApiKey: '' }).aiIsConfigured,
+       false, 'keyed provider with no key');
+    eq(ctx({ aiProvider: 'openai', aiEndpoint: 'https://x/v1/chat/completions', openaiApiKey: 'k' }).aiIsConfigured,
+       true);
+    eq(ctx({ aiProvider: 'local', aiEndpoint: 'http://localhost:11434/v1/chat/completions', openaiApiKey: '' }).aiIsConfigured,
+       true, 'a local endpoint needs no key');
+  });
+
+  test('6. choosing a provider fills in its endpoint and a model', function () {
+    var c = ctx({ aiProvider: 'openrouter' });
+    c.aiSelectProvider();
+    assert(/openrouter\.ai/.test(c.aiEndpoint), 'endpoint not filled: ' + c.aiEndpoint);
+    assert(c.aiModel && c.aiModel.length, 'model not filled');
+    deepEq(c.aiDiscovered, [], 'a provider switch must clear the previous model list');
+  });
+
+  test('7. every preset is usable (endpoint + models + key hint)', function () {
+    var P = ctx({}).aiPresetList;
+    assert(P.length >= 5, 'expected several presets');
+    P.forEach(function (p) {
+      var c = ctx({ aiProvider: p.key });
+      assert(c.aiPreset.label, p.key + ' has no label');
+      if (p.key !== 'custom') {
+        assert(c.aiPreset.url, p.key + ' has no endpoint');
+        assert(c.aiPreset.models && c.aiPreset.models.length, p.key + ' suggests no models');
+      }
+    });
+  });
+
+  test('8. the local preset leads with a non-reasoning model', function () {
+    // qwen3 on CPU spent 600s+ thinking and never answered; llama3.2 answers
+    // in seconds. The default must not be the one that cannot finish.
+    var c = ctx({ aiProvider: 'local' });
+    assert(/llama/i.test(c.aiPreset.models[0]),
+           'local should default to a non-reasoning model, got ' + c.aiPreset.models[0]);
+  });
+
+  test('9. a model absent from the endpoint list is flagged before use', function () {
+    var c = ctx({ aiDiscovered: ['llama3.2:3b', 'qwen3:4b'], aiModel: 'gpt-4o' });
+    eq(c.aiModelUnknown, true, 'an unavailable model should be flagged');
+    c = ctx({ aiDiscovered: ['llama3.2:3b'], aiModel: 'llama3.2:3b' });
+    eq(c.aiModelUnknown, false);
+    c = ctx({ aiDiscovered: [], aiModel: 'anything' });
+    eq(c.aiModelUnknown, false, 'nothing to compare against yet - do not warn');
+  });
+
+  test('10. the summary names the provider and model', function () {
+    var c = ctx({ aiProvider: 'local', aiEndpoint: 'http://localhost:11434/v1/chat/completions',
+                  aiModel: 'llama3.2:3b' });
+    assert(/llama3\.2:3b/.test(c.aiSummary), c.aiSummary);
+    eq(ctx({ aiEndpoint: '' }).aiSummary, 'Not configured');
+  });
+
+  /* ================= VARIATIONS ================= */
+  section('Variations - rerank gating');
+
+  test('11. rerank follows AI Settings, including the keyless local case', function () {
+    eq(ctx({ aiEndpoint: '', openaiApiKey: '' }).varCanRerank, false);
+    eq(ctx({ aiProvider: 'openai', aiEndpoint: 'https://x/v1/chat/completions', openaiApiKey: 'k' }).varCanRerank, true);
+    eq(ctx({ aiProvider: 'local', aiEndpoint: 'http://localhost:11434/v1/chat/completions', openaiApiKey: '' }).varCanRerank,
+       true, 'a keyless local endpoint must still enable rerank');
+  });
+
+  section('Variations - result selection');
+
+  test('12. with nothing selected, actions apply to every result', function () {
+    var c = ctx({ varResults: [{ id: 'v0', text: 'A' }, { id: 'v1', text: 'B' }, { id: 'v2', text: 'C' }] });
+    eq(c.varSelectedCount, 0);
+    eq(c.varSendTargets.length, 3);
+    eq(c.varSendLabel, 'Send all 3');
+  });
+
+  test('13. with a selection, actions apply only to it', function () {
+    var c = ctx({ varResults: [{ id: 'v0', text: 'A' }, { id: 'v1', text: 'B' }, { id: 'v2', text: 'C' }] });
+    c.varToggleSelect(c.varResults[1]);
+    eq(c.varSelectedCount, 1);
+    deepEq(c.varSendTargets.map(function (v) { return v.text; }), ['B']);
+    eq(c.varSendLabel, 'Send 1 selected');
+    c.varToggleSelect(c.varResults[1]);
+    eq(c.varSelectedCount, 0, 'clicking again should deselect');
+  });
+
+  test('14. sending honours the selection rather than blindly sending all', function () {
+    // The original bug: the bulk button ignored the selection entirely.
+    var c = ctx({ varResults: [{ id: 'v0', text: 'A' }, { id: 'v1', text: 'B' }, { id: 'v2', text: 'C' }] });
+    c.varToggleSelect(c.varResults[2]);
+    c.varSendAllToTransforms();
+    eq(c.transformInput, 'C', 'sent the wrong set');
+    eq(c.activeTab, 'transforms');
+
+    c.varSelectAllResults(false);
+    c.varSendAllToTransforms();
+    eq(c.transformInput, 'A\nB\nC', 'with no selection it should send everything');
+  });
+
+  test('15. copy and download follow the same selection rule', function () {
+    var c = ctx({ varResults: [{ id: 'v0', text: 'A' }, { id: 'v1', text: 'B' }] });
+    c.varToggleSelect(c.varResults[0]);
+    c.varCopyAll();
+    eq(c._copied, 'A', 'copy ignored the selection');
+  });
+
+  test('16. select all / none', function () {
+    var c = ctx({ varResults: [{ id: 'v0' }, { id: 'v1' }, { id: 'v2' }] });
+    c.varSelectAllResults(true);
+    eq(c.varSelectedCount, 3);
+    eq(c.varAllSelected, true);
+    c.varSelectAllResults(false);
+    eq(c.varSelectedCount, 0);
+    eq(c.varAllSelected, false);
+  });
+
+  section('Variations - relations and reporting');
+
+  test('17. every relation is enabled by default', function () {
+    var c = ctx({});
+    var all = Object.keys(window.sentenceVariations.RELATIONS);
+    eq(c.varEnabledRelations.length, all.length, 'some relation is off by default');
+  });
+
+  test('18. toggling relations off leaves none enabled', function () {
+    var c = ctx({});
+    c.varToggleAll(false);
+    eq(c.varEnabledRelations.length, 0);
+    c.varToggleAll(true);
+    eq(c.varEnabledRelations.length, Object.keys(window.sentenceVariations.RELATIONS).length);
+  });
+
+  test('19. a shortfall is reported honestly, not padded', function () {
+    var c = ctx({ varRequested: 25, varProduced: 18 });
+    assert(/18 of 25/.test(c.varShortfallNote), c.varShortfallNote);
+    eq(ctx({ varRequested: 10, varProduced: 10 }).varShortfallNote, '', 'no note when the count was met');
+  });
+
+  test('20. the provenance tooltip names the swap and its relation', function () {
+    var c = ctx({});
+    var s = c.varSwapSummary({
+      edits: [{ original: 'ignore', rawCandidate: 'disregard', relation: 'synonym' }],
+      flags: ['polysemous']
+    });
+    assert(/ignore/.test(s) && /disregard/.test(s), s);
+    assert(/Synonyms/.test(s), 'should name the relation label: ' + s);
+    assert(/polysemous/.test(s), 'should surface flags: ' + s);
+  });
+
+  /* ================= runner ================= */
+  var out = document.getElementById('out');
+  var pass = 0, fail = 0;
+
+  queue.forEach(function (item) {
+    if (item.section) {
+      var h = document.createElement('div');
+      h.className = 'sec'; h.textContent = item.section;
+      out.appendChild(h);
+      return;
+    }
+    var ok = true, msg = '';
+    try { item.fn(); } catch (e) { ok = false; msg = e && e.message; }
+    ok ? pass++ : fail++;
+    var d = document.createElement('div');
+    d.className = 't ' + (ok ? 'p' : 'f');
+    d.innerHTML = '<span class="name">' + (ok ? 'PASS' : 'FAIL') + '</span> &nbsp;' +
+                  item.name + (msg ? '<div class="msg">' + String(msg).replace(/</g, '&lt;') + '</div>' : '');
+    out.appendChild(d);
+  });
+
+  var s = document.getElementById('summary');
+  s.className = fail ? 'bad' : 'ok';
+  s.textContent = pass + ' passed, ' + fail + ' failed  (' +
+                  (pass + fail) + ' tests, no Vue, no network)';
+  window.__testResults = { pass: pass, fail: fail, total: pass + fail };
+})();
+</script>
+</body>
+</html>

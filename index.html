@@ -6,10 +6,15 @@
     <title>Parseltongue 3.1 - LLM Payload Crafter</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/notification.css">
+    <link rel="stylesheet" href="css/variations.css">
     <!-- Vue.js -->
-    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"
+            integrity="sha384-t1tHLsbM7bYMJCXlhr0//00jSs7ZhsAhxgm191xFsyzvieTMCbUWKMhFg9I6ci8q"
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <!-- Font Awesome for icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+          integrity="sha384-5e2ESR8Ycmos6g3gAKr1Jvwye8sW4U1u/cAKulfVJnkakCcMqhOudbtPnvJ+nbv7"
+          crossorigin="anonymous" referrerpolicy="no-referrer">
 </head>
 <body>
     <div id="app" class="container">
@@ -36,10 +41,11 @@
                     <i class="fas" :class="isDarkTheme ? 'fa-moon' : 'fa-sun'"></i>
                 </button>
                 <a 
-                    href="https://github.com/elder-plinius/P4RS3LT0NGV3" 
+                    href="https://github.com/dund3rpwn/P4RS3LT0NGV3" 
                     target="_blank" 
+                    rel="noopener noreferrer"
                     class="github-button" 
-                    title="View source on GitHub"
+                    title="View source for this modified version on GitHub (AGPL-3.0)"
                     aria-label="View source code on GitHub"
                 >
                     <i class="fab fa-github"></i>
@@ -70,6 +76,20 @@
                     title="Hide text in emojis (H)"
                 >
                     <i class="fas fa-smile"></i> Emoji
+                </button>
+                <button 
+                    :class="{ active: activeTab === 'variations' }" 
+                    @click="switchToTab('variations')"
+                    title="Semantic sentence variations (V)"
+                >
+                    <i class="fas fa-shuffle"></i> Variations
+                </button>
+                <button 
+                    :class="{ active: activeTab === 'aisettings' }" 
+                    @click="switchToTab('aisettings')"
+                    title="API key, provider and model (A)"
+                >
+                    <i class="fas fa-robot"></i> AI Settings
                 </button>
                 <button 
                     :class="{ active: activeTab === 'tokenade' }" 
@@ -498,6 +518,275 @@
                 </div>
             </div>
             
+            <!-- Sentence Variations Tab -->
+            <div v-if="activeTab === 'variations'" class="tab-content" id="variations-panel">
+                <div class="transform-layout">
+                    <div class="transform-section">
+                        <div class="section-header">
+                            <h3><i class="fas fa-shuffle"></i> Sentence Variations <small>Semantic rephrasings that keep the meaning</small></h3>
+                            <div class="mutation-explanation">
+                                <p><strong>&#129504; What is this?</strong> Swaps words for their synonyms, negated antonyms, hypernyms, hyponyms and homophones to produce many semantically-adjacent phrasings of one sentence &mdash; for testing whether a guardrail blocks a <em>concept</em> or merely a <em>string</em>.</p>
+                                <p><strong>&#129516; Mutation Lab vs Variations:</strong></p>
+                                <ul>
+                                    <li><strong>&#129516; Mutation Lab:</strong> mutates <em>characters</em> (Unicode noise, Zalgo, whitespace)</li>
+                                    <li><strong>&#128173; Variations:</strong> mutates <em>meaning</em> (the sentence still reads as English)</li>
+                                </ul>
+                                <p>Then send a variation to <strong>Transform</strong> to encode it &mdash; two evasion dimensions at once.</p>
+                            </div>
+                        </div>
+
+                        <div class="options-grid">
+                            <label>
+                                Sentence
+                                <textarea v-model="varInput" placeholder="Paste a sentence to vary..." rows="3"></textarea>
+                            </label>
+                            <label>
+                                Results
+                                <input type="number" v-model.number="varCount" min="1" max="200" />
+                            </label>
+                            <label>
+                                Aggressiveness
+                                <select v-model="varAggressiveness">
+                                    <option value="conservative">Conservative (1 word)</option>
+                                    <option value="balanced">Balanced</option>
+                                    <option value="aggressive">Aggressive (up to 3)</option>
+                                </select>
+                            </label>
+                            <label>
+                                Seed (optional)
+                                <input type="text" v-model="varSeed" placeholder="e.g., 1337" />
+                            </label>
+                        </div>
+
+                        <div class="var-relation-groups">
+                            <div class="var-group" :class="'var-group-' + g.key" v-for="g in varRelationGroups" :key="g.key">
+                                <h4>{{ g.label }}</h4>
+                                <label class="switch neon" v-for="r in g.items" :key="r.key">
+                                    <input type="checkbox" v-model="varRelations[r.key]" />
+                                    <span>{{ r.label }}</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="var-selectors">
+                            <a @click="varToggleAll(true)">select all</a>
+                            <a @click="varToggleAll(false)">none</a>
+                            <span style="margin-left:auto">More results cost no extra API requests.</span>
+                        </div>
+
+                        <div class="options-grid">
+                            <label class="switch neon" :title="varCanRerank ? 'Ranks results for fluency using the model set in AI Settings' : 'Configure a provider and key in the AI Settings tab'">
+                                <input type="checkbox" v-model="varUseRerank" :disabled="!varCanRerank" />
+                                <span>AI rerank</span>
+                            </label>
+                            <span class="var-rerank-hint">
+                                <template v-if="varCanRerank">via {{ aiSummary }}</template>
+                                <template v-else>needs an API key &mdash; <a @click="aiGoToSettings">AI Settings &rarr;</a></template>
+                            </span>
+                        </div>
+
+                        <div class="token-bomb-actions mutation-actions">
+                            <button class="transform-button" @click="varGenerate" :disabled="varLoading">
+                                <i class="fas fa-wand-magic-sparkles"></i> {{ varLoading ? 'Generating...' : 'Generate Variations' }}
+                            </button>
+                            <button class="action-button" v-if="varLoading" @click="varCancel"><i class="fas fa-stop"></i> Cancel</button>
+                            <button class="action-button" v-if="!varInput" @click="varFillExample"><i class="fas fa-lightbulb"></i> Example</button>
+                            <button class="action-button" v-if="varResults.length" @click="varReshuffle"><i class="fas fa-rotate"></i> Reshuffle</button>
+                            <button class="action-button copy" v-if="varResults.length" @click="varCopyAll"><i class="fas fa-copy"></i> Copy {{ varSelectedCount ? varSelectedCount + ' selected' : 'all' }}</button>
+                            <button class="action-button download" v-if="varResults.length" @click="varDownload"><i class="fas fa-download"></i> Download</button>
+                            <button class="action-button" v-if="varResults.length" @click="varSendAllToTransforms"><i class="fas fa-arrow-right"></i> {{ varSendLabel }} &rarr; Transform</button>
+                        </div>
+
+                        <div class="var-progress" v-if="varLoading">
+                            <div :style="{ width: varProgressPct + '%' }"></div>
+                        </div>
+
+                        <div class="var-banner" v-if="varDegraded">
+                            <i class="fas fa-triangle-exclamation"></i>
+                            Datamuse was unreachable or rate-limited. Showing whatever was cached.
+                        </div>
+                        <div class="var-banner" v-if="varWarnings.indexOf('no_relations_selected') !== -1">
+                            Select at least one relation type.
+                        </div>
+                        <div class="var-banner" v-if="varWarnings.indexOf('empty_input') !== -1">
+                            Enter a sentence first &mdash; or click <strong>Example</strong> to load one.
+                        </div>
+                        <div class="var-banner" v-if="varWarnings.indexOf('unexpected_error') !== -1">
+                            Something went wrong. Check the browser console for details.
+                        </div>
+
+                        <div class="output-container" v-if="varResults.length">
+                            <div class="var-yield">
+                                <strong>{{ varProduced }} result{{ varProduced === 1 ? '' : 's' }}</strong>
+                                <span v-for="y in varYieldSummary" :key="y.key" :class="{ 'var-zero': !y.n }">
+                                    {{ y.label }} {{ y.n }}
+                                </span>
+                                <span v-if="varStats" class="var-zero">&middot; {{ varStats.apiCalls }} requests, {{ varStats.elapsedMs }}ms</span>
+                            </div>
+                            <div class="var-shortfall" v-if="varShortfallNote">{{ varShortfallNote }}</div>
+                            <div class="var-selectors">
+                                <span v-if="varSelectedCount">{{ varSelectedCount }} selected &mdash; actions apply to these</span>
+                                <span v-else>Click a result to select it. With nothing selected, actions apply to all.</span>
+                                <a style="margin-left:auto" @click="varSelectAllResults(!varAllSelected)">{{ varAllSelected ? 'deselect all' : 'select all' }}</a>
+                            </div>
+
+                            <div class="token-tiles variations-list" style="display:flex; flex-direction:column; gap:8px;">
+                                <div v-for="(v, i) in varResults" :key="v.id" class="token-chip"
+                                     :class="{ 'var-selected': varSelected[v.id] }"
+                                     @click="varToggleSelect(v)"
+                                     :title="varSwapSummary(v) + '\n\n' + (varSelected[v.id] ? '(click to deselect)' : '(click to select)')">
+                                    <span style="opacity:.7; min-width:32px;">#{{ i+1 }}</span>
+                                    <textarea :value="v.text" readonly style="flex:1; min-height:46px;" @click.stop="varToggleSelect(v)"></textarea>
+                                    <button class="copy-button" @click.stop="copyToClipboard(v.text)" title="Copy"><i class="fas fa-copy"></i></button>
+                                </div>
+                            </div>
+
+                            <div class="var-footnote">
+                                Words are sent individually to api.datamuse.com. AI rerank sends whole sentences to OpenAI under your own key &mdash; avoid it when testing OpenAI&rsquo;s own guardrails.
+                                Cached: {{ varCacheWords }} lookups &middot; <a style="cursor:pointer;text-decoration:underline" @click="varClearCache">clear</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Settings Tab -->
+            <div v-if="activeTab === 'aisettings'" class="tab-content" id="ai-settings-panel">
+                <div class="transform-layout">
+                    <div class="transform-section">
+                        <div class="section-header">
+                            <h3><i class="fas fa-robot"></i> AI Settings <small>Provider, key and model for every AI feature</small></h3>
+                            <div class="mutation-explanation">
+                                <p><strong>&#128273; One place for your API key.</strong> Every AI-powered feature in this tool reads its provider, endpoint and model from here.</p>
+                                <p>All providers listed use the same OpenAI-compatible request format, so <strong>OpenRouter reaches Claude, Gemini and Llama with a single key</strong> &mdash; and any other compatible endpoint works too.</p>
+                            </div>
+                        </div>
+
+                        <div class="api-key-section">
+                            <div class="section-header">
+                                <h4>&#128273; AI Provider Configuration</h4>
+                                <p>Your API key is stored locally in your browser and sent only to the endpoint you choose below.</p>
+                            </div>
+
+                            <div class="options-grid">
+                                <label>
+                                    <i class="fas fa-plug"></i> Provider
+                                    <select v-model="aiProvider" @change="aiSelectProvider">
+                                        <option v-for="p in aiPresetList" :key="p.key" :value="p.key">{{ p.label }}</option>
+                                    </select>
+                                </label>
+                                <label>
+                                    <i class="fas fa-link"></i> Endpoint
+                                    <input type="text" v-model="aiEndpoint" @change="aiEndpointChanged" @input="aiSave"
+                                           placeholder="https://api.openai.com/v1/chat/completions" />
+                                </label>
+                            </div>
+
+                            <div class="api-key-input">
+                                <label>
+                                    <i class="fas fa-key"></i> API Key
+                                    <div class="api-key-wrapper">
+                                        <input
+                                            :type="showApiKey ? 'text' : 'password'"
+                                            v-model="openaiApiKey"
+                                            :placeholder="aiPreset.keyHint"
+                                            @input="saveApiKey"
+                                            class="api-key-field"
+                                        />
+                                        <button
+                                            class="toggle-visibility"
+                                            @click="toggleApiKeyVisibility"
+                                            type="button"
+                                            :title="showApiKey ? 'Hide API key' : 'Show API key'"
+                                        >
+                                            <i :class="showApiKey ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+                                        </button>
+                                    </div>
+                                    <small v-if="aiIsLocal">No key needed for a local endpoint &mdash; and any key you enter is <strong>not</strong> sent to localhost.</small>
+                                    <small v-else-if="aiKeyOptional">No key needed &mdash; leave this blank. <a :href="aiPreset.help" target="_blank" rel="noopener noreferrer">{{ aiPreset.helpLabel }}</a></small>
+                                    <small v-else-if="aiPreset.help">Get your API key from <a :href="aiPreset.help" target="_blank" rel="noopener noreferrer">{{ aiPreset.helpLabel }}</a></small>
+                                    <small v-else>Enter the key your endpoint expects.</small>
+                                </label>
+                                <div class="api-status" v-if="openaiApiKey">
+                                    <i class="fas fa-check-circle"></i>
+                                    <span>API key configured</span>
+                                    <button class="clear-api-key-btn" @click="clearApiKey" title="Clear API key from browser storage">
+                                        <i class="fas fa-trash"></i> Clear Key from Local Browser Storage
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="model-config-section">
+                            <div class="options-grid">
+                                <label>
+                                    &#129302; Model
+                                    <select v-if="aiDiscovered.length" v-model="aiModel" @change="aiSave">
+                                        <option v-for="m in aiDiscovered" :key="m" :value="m">{{ m }}</option>
+                                        <option v-if="aiModelUnknown" :value="aiModel">{{ aiModel }} (not on this endpoint)</option>
+                                    </select>
+                                    <input v-else type="text" v-model="aiModel" @input="aiSave" placeholder="gpt-4o-mini" />
+                                </label>
+                                <label class="slider-block" title="Only affects the Anti-Classifier. Reranking always uses 0 so its scores are reproducible.">
+                                    &#127777; Temperature <small>(Anti-Classifier only)</small>
+                                    <input type="range" v-model.number="aiTemperature" @change="aiSave" min="0" max="1" step="0.1" />
+                                    <span class="slider-value">{{ aiTemperature }}</span>
+                                </label>
+                                <label>
+                                    &#128202; Max tokens
+                                    <input type="number" v-model.number="aiMaxTokens" @input="aiSave" min="100" max="8000" step="100" />
+                                </label>
+                            </div>
+                            <div class="ai-model-suggestions" v-if="aiDiscovered.length">
+                                <span>{{ aiDiscovered.length }} model{{ aiDiscovered.length === 1 ? '' : 's' }} found at this endpoint.</span>
+                                <span v-if="aiModelUnknown" style="color:var(--format-color)">&#9888; "{{ aiModel }}" is not among them &mdash; requests will fail.</span>
+                            </div>
+                            <div class="ai-model-suggestions" v-else-if="aiPreset.models && aiPreset.models.length">
+                                <span>Suggested:</span>
+                                <button v-for="m in aiPreset.models" :key="m" class="action-button" @click="aiUseModel(m)">{{ m }}</button>
+                            </div>
+                        </div>
+
+                        <div class="var-banner" v-if="aiLocalUnreachable">
+                            <i class="fas fa-ban"></i>
+                            <strong>This page is on https, so the browser will not let it reach http://localhost.</strong>
+                            A local model only works from a locally-served copy of this tool. Use a hosted provider here, or run the tool locally.
+                        </div>
+
+                        <div class="var-banner" v-if="aiPageIsHosted">
+                            <i class="fas fa-shield-halved"></i>
+                            <strong>Hosted copy.</strong> Your key is stored in this site&rsquo;s browser storage, so any script
+                            running on this origin can read it &mdash; including anything injected through a future bug.
+                            Use a <strong>spend-capped, minimally-scoped key</strong> here, and prefer a locally-served copy for
+                            anything sensitive. Clear the key when you are done.
+                        </div>
+
+                        <div class="var-banner" v-if="aiPreset.note">
+                            <i class="fas fa-circle-info"></i> {{ aiPreset.note }}
+                        </div>
+
+                        <div class="token-bomb-actions mutation-actions">
+                            <button class="transform-button" @click="aiTestConnection" :disabled="aiTesting">
+                                <i class="fas fa-plug-circle-check"></i> {{ aiTesting ? 'Testing...' : 'Test Connection' }}
+                            </button>
+                            <button class="action-button" @click="aiFetchModels" :disabled="aiDiscovering">
+                                <i class="fas fa-list"></i> {{ aiDiscovering ? 'Loading...' : 'List Models' }}
+                            </button>
+                        </div>
+
+                        <div class="api-status ai-test-result" v-if="aiTestResult">
+                            <i :class="aiTestResult.ok ? 'fas fa-check-circle' : 'fas fa-triangle-exclamation'"></i>
+                            <span>{{ aiTestResult.message }}</span>
+                        </div>
+
+                        <div class="var-footnote">
+                            <strong>Used by:</strong> AI rerank (Variations) &middot; Anti-Classifier.
+                            Both read this key, so you only enter it once.
+                            Your payload text is sent to the endpoint above &mdash; point it somewhere you trust.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Bijection Tab -->
             <div v-if="activeTab === 'bijection'" class="tab-content">
                 <div class="transform-layout">
@@ -658,45 +947,6 @@
                             </div>
                         </div>
 
-                        <!-- API Key Configuration -->
-                        <div class="api-key-section">
-                            <div class="section-header">
-                                <h4>🔑 OpenAI API Configuration</h4>
-                                <p>Your API key is stored locally in your browser and never sent to our servers.</p>
-                            </div>
-                            <div class="api-key-input">
-                                <label>
-                                    <i class="fas fa-key"></i> OpenAI API Key
-                                    <div class="api-key-wrapper">
-                                        <input 
-                                            type="password" 
-                                            v-model="openaiApiKey" 
-                                            placeholder="sk-..." 
-                                            @input="saveApiKey"
-                                            class="api-key-field"
-                                        />
-                                        <button 
-                                            class="toggle-visibility" 
-                                            @click="toggleApiKeyVisibility"
-                                            type="button"
-                                            :title="showApiKey ? 'Hide API key' : 'Show API key'"
-                                        >
-                                            <i :class="showApiKey ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
-                                        </button>
-                                    </div>
-                                    <small>Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI Platform</a></small>
-                                </label>
-                                <div class="api-status" v-if="openaiApiKey">
-                                    <i class="fas fa-check-circle"></i>
-                                    <span>API key configured</span>
-                                    <button class="clear-api-key-btn" @click="clearApiKey" title="Clear API key from browser storage">
-                                        <i class="fas fa-trash"></i> Clear OpenAI Key from Local Browser Storage
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-
                         <!-- User Input Section -->
                         <div class="user-prompt-section">
                             <div class="section-header">
@@ -715,7 +965,7 @@
                                 <button 
                                     class="transform-button" 
                                     @click="generateAntiClassifierResponse" 
-                                    :disabled="!openaiApiKey || !anticlassifierUserPrompt.trim() || isGenerating"
+                                    :disabled="!anticlassifierUserPrompt.trim() || isGenerating"
                                 >
                                     <i :class="isGenerating ? 'fas fa-spinner fa-spin' : 'fas fa-magic'"></i>
                                     {{ isGenerating ? 'Generating...' : 'Generate Transformations' }}
@@ -724,27 +974,9 @@
                         </div>
 
                         <!-- Model Configuration -->
-                        <div class="model-config-section">
-                            <div class="options-grid">
-                                <label>
-                                    🤖 Model
-                                    <select v-model="openaiModel">
-                                        <option value="gpt-4">GPT-4</option>
-                                        <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                                        <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                                    </select>
-                                </label>
-                                <label class="slider-block">
-                                    🌡️ Temperature
-                                    <input type="range" v-model.number="openaiTemperature" min="0" max="1" step="0.1" />
-                                    <span class="slider-value">{{ openaiTemperature }}</span>
-                                </label>
-                                <label class="slider-block">
-                                    📏 Max Tokens
-                                    <input type="range" v-model.number="openaiMaxTokens" min="100" max="4000" step="100" />
-                                    <span class="slider-value">{{ openaiMaxTokens }}</span>
-                                </label>
-                            </div>
+                        <div class="var-rerank-hint" style="margin-bottom:12px;">
+                            <template v-if="aiIsConfigured">Using {{ aiSummary }} &mdash; <a @click="aiGoToSettings">change in AI Settings &rarr;</a></template>
+                            <template v-else>No AI provider configured &mdash; <a @click="aiGoToSettings">AI Settings &rarr;</a></template>
                         </div>
 
                         <!-- Response Section -->
@@ -755,7 +987,7 @@
                             </div>
                             <div class="response-container">
                                 <div class="response-header">
-                                    <span class="model-info">{{ openaiModel }}</span>
+                                    <span class="model-info">{{ aiModel }}</span>
                                     <button class="copy-button" @click="copyToClipboard(anticlassifierResponse)" title="Copy response">
                                         <i class="fas fa-copy"></i> Copy Response
                                     </button>
@@ -1583,6 +1815,9 @@
     <script src="js/transforms.js"></script>
     <script src="js/steganography.js"></script>
     <script src="js/emojiLibrary.js"></script>
+    <script src="js/variations.js"></script>
+    <script src="js/variationsVue.js"></script>
+    <script src="js/aiSettingsVue.js"></script>
     <script src="js/app.js"></script>
     
     <!-- Force emoji grid rendering -->

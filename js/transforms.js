@@ -15,12 +15,19 @@ const transforms = {
         },
         reverse: function(text) {
             if (!text) return '';
-            const matches = [...text.matchAll(/[\uE0000-\uE007F]/g)];
+            // func() encodes UTF-8 BYTES as 0xE0000 + byte, so the range must
+            // reach 0xE00FF - stopping at 0xE007F silently dropped every
+            // non-ASCII byte ("café" came back as "caf "). The recovered
+            // bytes then need a real UTF-8 decode, not fromCharCode per byte.
+            const matches = [...text.matchAll(/[\u{E0000}-\u{E00FF}]/gu)];
             if (!matches.length) return '';
-            
-            return matches
-                .map(match => String.fromCharCode(match[0].codePointAt(0) - 0xE0000))
-                .join('');
+
+            const bytes = Uint8Array.from(matches, m => m[0].codePointAt(0) - 0xE0000);
+            try {
+                return new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+            } catch (e) {
+                return String.fromCharCode.apply(null, bytes);
+            }
         }
     },
 

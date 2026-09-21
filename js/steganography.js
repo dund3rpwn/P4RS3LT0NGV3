@@ -187,8 +187,10 @@ function encodeInvisible(text) {
 function decodeInvisible(text) {
     if (!text) return '';
     
-    // Extract valid invisible characters
-    const matches = [...text.matchAll(/[\uE0000-\uE007F]/g)];
+    // Extract valid invisible characters.
+    // The range must reach 0xE00FF: encodeInvisible maps UTF-8 BYTES to
+    // 0xE0000 + byte, and any non-ASCII character produces bytes >= 0x80.
+    const matches = [...text.matchAll(/[\u{E0000}-\u{E00FF}]/gu)];
     if (!matches.length) return '';
     
     // Create byte array from code points
