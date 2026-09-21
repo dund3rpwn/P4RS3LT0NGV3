@@ -1,5 +1,17 @@
 # 🐍 P4RS3LT0NGV3 - Universal Text Translator
 
+> **This is a modified fork.**
+> Forked from [Arcanum-Sec/P4RS3LT0NGV3](https://github.com/Arcanum-Sec/P4RS3LT0NGV3) and modified in September 2026 by [@dund3rpwn](https://github.com/dund3rpwn).
+>
+> **Changes in this fork:**
+> - Added a **Sentence Variations** tab - semantic payload mutation via synonyms, negated antonyms, hypernyms, hyponyms and homophones ([VARIATIONS.md](VARIATIONS.md))
+> - Added an **AI Settings** tab - one place to configure provider, endpoint, key and model, supporting any OpenAI-compatible endpoint including a local Ollama
+> - Routed the Anti-Classifier through that shared configuration instead of a hardcoded OpenAI endpoint
+> - Fixed upstream bugs: invisible-text decoding, an unregistered `setupPasteHandlers`, unescaped model output rendered via `v-html`, and unpinned CDN dependencies
+>
+> Licensed under AGPL-3.0, as upstream. Source for this modified version: <https://github.com/dund3rpwn/P4RS3LT0NGV3>
+
+
 A powerful web-based text transformation and steganography tool that can encode/decode text in over 50 different languages, scripts, and formats. Think of it as a universal translator for ALL alphabets and writing systems!
 
 ## ✨ Features
