@@ -93,6 +93,21 @@
     }
   };
 
+  // True only when the URL's HOST is a loopback address.
+  //
+  // Prefix-matching the URL is wrong: "https://localhost.evil.com/" starts
+  // with "https://localhost", so a registered domain would inherit local
+  // treatment. Compare the parsed hostname exactly.
+  function isLoopbackUrl(url) {
+    if (!url) return false;
+    var host;
+    try { host = new URL(url).hostname.toLowerCase(); }
+    catch (e) { return false; }
+    return host === 'localhost' || host === '127.0.0.1' ||
+           host === '[::1]' || host === '::1' ||
+           /(^|\.)localhost$/.test(host);
+  }
+
   global.aiSettingsVueMixin = {
     data: function () {
       return {
@@ -120,7 +135,7 @@
       aiKeyOptional: function () { return !!this.aiPreset.keyOptional; },
 
       aiIsLocal: function () {
-        return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])/i.test(this.aiEndpoint || '');
+        return isLoopbackUrl(this.aiEndpoint);
       },
 
       // Withhold the key from localhost: a local server never needs a hosted

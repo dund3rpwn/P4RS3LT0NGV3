@@ -84,9 +84,9 @@ window.app = new Vue({
         // Syntactic Anti-Classifier
         openaiApiKey: '',
         showApiKey: false,
-        openaiModel: 'gpt-4',
-        openaiTemperature: 0.7,
-        openaiMaxTokens: 2000,
+        // NOTE: model / temperature / maxTokens now live in AI Settings
+        // (js/aiSettingsVue.js) as aiModel / aiTemperature / aiMaxTokens,
+        // which both the Anti-Classifier and the Variations rerank read.
         anticlassifierUserPrompt: '',
         anticlassifierResponse: '',
         anticlassifierError: '',

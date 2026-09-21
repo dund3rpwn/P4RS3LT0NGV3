@@ -1408,7 +1408,13 @@
     // A hosted API answers in seconds; a local model on CPU can take minutes.
     // The old flat 12s abort fired before a local thinking model had finished,
     // so rerank could never succeed against Ollama or LM Studio.
-    var isLocal = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])/i.test(endpoint);
+    // host-exact, not prefix: "https://localhost.evil.com" is not local
+    var isLocal = (function (u) {
+      var h;
+      try { h = new URL(u).hostname.toLowerCase(); } catch (e) { return false; }
+      return h === 'localhost' || h === '127.0.0.1' || h === '[::1]' ||
+             h === '::1' || /(^|\.)localhost$/.test(h);
+    })(endpoint);
     var timeoutMs = cfg.timeoutMs || (isLocal ? 300000 : 30000);
 
     var ac = (typeof AbortController !== 'undefined') ? new AbortController() : null;

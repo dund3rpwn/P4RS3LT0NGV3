@@ -156,6 +156,13 @@ Upstream files touched: `index.html` (additive markup) and `js/app.js` — the m
 
 ## Tests
 
+Two suites, both zero-build and zero-network — open either directly in a browser.
+
+- **`test_variations.html`** — 41 tests over the generation engine.
+- **`test_mixins.html`** — 20 tests over the AI Settings and Variations mixins, exercising their computed properties and methods against a mock context rather than mounting Vue, so the suite stays offline. The load-bearing one is **test 1**: the API key must never be attached to a loopback endpoint.
+
+### Engine suite
+
 Open `test_variations.html` directly in a browser. 25 tests, **no network calls** — a stubbed fetch answers from recorded fixtures, so the suite runs offline and spends no rate-limit budget.
 
 Fixtures are a plain `<script>` assignment rather than fetched JSON, because under `file://` a `fetch()` of a local file is blocked by CORS and would break for anyone who just double-clicks the page.
